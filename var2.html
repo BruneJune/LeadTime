@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Игра по Lead Time</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+        }
+
+        .container {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr); /* 5 колонок */
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .square {
+            width: 100px;
+            height: 100px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            font-size: 0.8em;
+            border: 1px solid black;
+            cursor: pointer;
+        }
+
+        .orange {
+            background-color: orange;
+        }
+
+        .green {
+            background-color: lightgreen;
+        }
+
+        .disabled {
+            background-color: orange;
+            cursor: not-allowed;
+        }
+
+        .inactive {
+            background-color: lightgrey;
+            cursor: not-allowed;
+        }
+
+        .active {
+            background-color: lightgreen;
+        }
+
+        .card-button-disabled {
+            background-color: lightgrey;
+            cursor: not-allowed;
+        }
+
+        .card-button-active {
+            background-color: green;
+            cursor: pointer;
+        }
+
+        .display {
+            width: 100px;
+            height: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid black;
+            font-size: 1.5em;
+        }
+
+        .card-display {
+            width: 300px;
+            height: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid black;
+            margin-top: 20px;
+        }
+
+        .text-row, .number-row {
+            width: 100%;
+            height: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 0.5em; /* было 1.5 */
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 1em;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="grid">
+        <!-- Первый ряд квадратов -->
+        <div class="square orange" id="square-start" onclick="resetAll()">Старт!</div>
+        <div class="square green inactive" id="square-1" onclick="generateSquareNumber(1)">Готова к оценке</div>
+        <div class="square green inactive" id="square-2" onclick="generateSquareNumber(2)">Оценена</div>
+        <div class="square green inactive" id="square-3" onclick="generateSquareNumber(3)">Backlog</div>
+        <div class="square green inactive" id="square-4" onclick="generateSquareNumber(4)">Ожидает разработки</div>
+
+        <!-- Первый ряд областей отображения чисел -->
+        <div class="display"></div>
+        <div class="display" id="display-1"></div>
+        <div class="display" id="display-2"></div>
+        <div class="display" id="display-3"></div>
+        <div class="display" id="display-4"></div>
+
+        <!-- Второй ряд квадратов -->
+        <div class="square green inactive" id="square-5" onclick="generateSquareNumber(5)">Разработка</div>
+        <div class="square green inactive" id="square-6" onclick="generateSquareNumber(6)">На ревью</div>
+        <div class="square green inactive" id="square-7" onclick="generateSquareNumber(7)">Доработка</div>
+        <div class="square green inactive" id="square-8" onclick="generateSquareNumber(8)">Сборка для dev</div>
+        <div class="square green inactive" id="square-9" onclick="generateSquareNumber(9)">Взять в тестирование</div>
+
+        <!-- Второй ряд областей отображения чисел -->
+        <div class="display" id="display-5"></div>
+        <div class="display" id="display-6"></div>
+        <div class="display" id="display-7"></div>
+        <div class="display" id="display-8"></div>
+        <div class="display" id="display-9"></div>
+
+        <!-- Третий ряд квадратов -->
+        <div class="square green inactive" id="square-10" onclick="generateSquareNumber(10)">В тестировании</div>
+        <div class="square green inactive" id="square-11" onclick="generateSquareNumber(11)">Протестировано</div>
+        <div class="square green inactive" id="square-12" onclick="generateSquareNumber(12)">Готова к релизу</div>
+        <div class="square green inactive" id="square-13" onclick="generateSquareNumber(13)">Тестирование (Прод)</div>
+        <div class="square orange" id="square-final" onclick="calculateSum()">ГОТОВО!</div>
+
+        <!-- Третий ряд областей отображения чисел -->
+        <div class="display" id="display-10"></div>
+        <div class="display" id="display-11"></div>
+        <div class="display" id="display-12"></div>
+        <div class="display" id="display-13"></div>
+        <div class="display" id="display-final"></div>
+    </div>
+
+    <div class="container">
+        <button id="take-card-btn" class="card-button-disabled" onclick="takeCard()">Шанс</button>
+    </div>
+
+    <!-- Прямоугольная область для отображения текста и чисел -->
+    <div class="card-display">
+        <div class="text-row" id="text-display"></div>
+        <div class="number-row" id="number-display"></div>
+    </div>
+
+    <script>
+        let lastClickedSquare = null; // Последний нажатый зелёный квадрат
+        let canTakeCard = false; // Может ли игрок взять карточку на текущем этапе
+        const numbers = []; // Массив для хранения сгенерированных чисел
+
+        // Функция для генерации случайного числа от 1 до 6 для каждого зелёного квадрата
+        function generateSquareNumber(squareIndex) {
+            const square = document.getElementById(`square-${squareIndex}`); // Получаем элемент квадрата
+            const randomNumber = Math.floor(Math.random() * 6) + 1; // Генерация числа от 1 до 6
+            const display = document.getElementById(`display-${squareIndex}`); // Получаем область для отображения числа
+
+            if (display && !square.classList.contains('disabled') && square.classList.contains('active')) {
+                display.textContent = randomNumber; // Отображаем сгенерированное число
+                numbers[squareIndex - 1] = randomNumber; // Сохраняем число в массив
+                lastClickedSquare = squareIndex; // Сохраняем индекс последнего нажатого квадрата
+                canTakeCard = true; // Разрешаем взять карточку
+
+                // Очищаем поле "Шанс"
+                document.getElementById("text-display").textContent = "";
+                document.getElementById("number-display").textContent = "";
+
+                // Блокируем кнопку (квадрат)
+                square.classList.add('disabled');
+                square.classList.remove('active');
+
+                // Активируем кнопку "Шанс"
+                const cardButton = document.getElementById("take-card-btn");
+                cardButton.classList.remove("card-button-disabled");
+                cardButton.classList.add("card-button-active");
+            }
+        }
+
+        // Функция для расчёта суммы всех чисел и отображения её в квадрате ГОТОВО
+        function calculateSum() {
+            const sum = numbers.reduce((acc, val) => acc + val, 0); // Рассчитываем сумму всех чисел
+            const finalDisplay = document.getElementById('display-final'); // Получаем область для вывода суммы
+
+            if (finalDisplay) {
+                finalDisplay.textContent = sum; // Отображаем сумму
+            }
+        }
+
+        // Логика для кнопки "Шанс"
+        function takeCard() {
+            // Проверка, можно ли взять карточку на текущем этапе
+            if (!canTakeCard || lastClickedSquare === null) {
+                return; // Игрок уже использовал карточку на этом этапе или не может использовать
+            }
+
+            // Массив с новыми текстами и значениями
+            const chanceOptions = [
+                { text: "Слишком частый пересмотр приоритетов", value: 5 },
+                { text: "Отсутствие документированных требований", value: 3 },
+                { text: "Микроменеджмент", value: 1 },
+                { text: "Введение WIP-лимитов", value: -3 },
+                { text: "Внедрение системы приоритизации", value: -5 },
+                { text: "Улучшение коммуникации между командой и стейкхолдерами", value: -1 }
+            ];
+
+            // Выбираем случайный вариант
+            const randomChance = chanceOptions[Math.floor(Math.random() * chanceOptions.length)];
+
+            // Отображение текста и значения в поле "Шанс"
+            document.getElementById("text-display").textContent = randomChance.text;
+            document.getElementById("number-display").textContent = randomChance.value;
+
+            // Прибавляем значение карточки к последнему нажатому квадрату
+            if (lastClickedSquare !== null) {
+                const currentDisplay = document.getElementById(`display-${lastClickedSquare}`);
+                let currentValue = numbers[lastClickedSquare - 1] || 0;
+                let newValue = currentValue + randomChance.value; // Обновляем значение
+
+                // Если новое значение отрицательное, отображаем 0
+                if (newValue < 0) {
+                    newValue = 0;
+                }
+
+                if (currentDisplay) {
+                    currentDisplay.textContent = newValue; // Отображаем обновлённое значение
+                    numbers[lastClickedSquare - 1] = newValue; // Сохраняем обновлённое значение в массиве
+                }
+
+                canTakeCard = false; // Запрещаем повторное использование карточки на этом этапе
+
+                // Деактивируем кнопку "Шанс"
+                const cardButton = document.getElementById("take-card-btn");
+                cardButton.classList.remove("card-button-active");
+                cardButton.classList.add("card-button-disabled");
+
+                // Активируем следующий квадрат
+                const nextSquare = document.getElementById(`square-${lastClickedSquare + 1}`);
+                if (nextSquare) {
+                    nextSquare.classList.add('active');
+                    nextSquare.classList.remove('inactive');
+                }
+            }
+        }
+
+        // Функция для сброса всех значений при нажатии на "Старт!"
+        function resetAll() {
+            // Сбрасываем все значения в массиве и очищаем отображение
+            for (let i = 1; i <= 13; i++) {
+                const display = document.getElementById(`display-${i}`);
+                const square = document.getElementById(`square-${i}`);
+                if (display) {
+                    display.textContent = '';
+                }
+                if (square) {
+                    square.classList.remove('disabled', 'inactive');
+                    if (i === 1) {
+                        square.classList.add('active');
+                    } else {
+                        square.classList.add('inactive');
+                    }
+                }
+                numbers[i - 1] = 0; // Сбрасываем значения в массиве
+            }
+
+            // Очищаем поле "ГОТОВО!"
+            const finalDisplay = document.getElementById('display-final');
+            if (finalDisplay) {
+                finalDisplay.textContent = '';
+            }
+
+            // Очищаем поле "Шанс"
+            document.getElementById("text-display").textContent = "";
+            document.getElementById("number-display").textContent = "";
+
+            // Сбрасываем логику для карточки
+            lastClickedSquare = null; // Сбрасываем последний нажатый квадрат
+            canTakeCard = false; // Запрещаем использование карточки до первого хода
+
+            // Деактивируем кнопку "Шанс"
+            const cardButton = document.getElementById("take-card-btn");
+            cardButton.classList.remove("card-button-active");
+            cardButton.classList.add("card-button-disabled");
+        }
+    </script>
+
+</body>
+</html>
